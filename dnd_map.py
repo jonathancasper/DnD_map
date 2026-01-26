@@ -88,7 +88,7 @@ def load_saved_state():
 def open_players():
     eel.show('players.html')
 
-eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default')
+eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='0.0.0.0')
 
 while True:
     eel.sleep(1.0)
