@@ -2,6 +2,7 @@ const mapWrapper = document.getElementById('map-wrapper');
 const fogCanvas = document.getElementById('fog-of-war');
 const ctx = fogCanvas.getContext('2d');
 const mapContainer = document.getElementById('map-container');
+mapContainer.style.cursor = 'grab';
 const mapScale = document.getElementById('map-scale');
 mapScale.addEventListener("change", () => {
 	const oldScale = scale;
@@ -42,6 +43,11 @@ mapContainer.addEventListener('mousedown', function(event) {
 	if (event.button === 1) { // Środkowy przycisk myszy
 		isDragging = true;
 		mapContainer.style.cursor = 'move';
+		startX = event.clientX - originX;
+		startY = event.clientY - originY;
+	} else if (event.button === 0) { // Lewy przycisk myszy - pan
+		isDragging = true;
+		mapContainer.style.cursor = 'grabbing';
 		startX = event.clientX - originX;
 		startY = event.clientY - originY;
 	}
@@ -99,7 +105,7 @@ mapContainer.addEventListener('touchend', function(event) {
 
 window.addEventListener('mouseup', function() {
 	isDragging = false;
-	mapContainer.style.cursor = '';
+	mapContainer.style.cursor = 'grab';
 });
 
 // Funkcja do obliczania odległości między dwoma punktami dotyku

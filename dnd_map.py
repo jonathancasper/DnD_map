@@ -2,6 +2,17 @@ import os
 import eel
 import json
 import base64
+import socket
+
+def get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return socket.gethostbyname(socket.gethostname())
 
 # Inicjalizacja aplikacji
 eel.init('web')
@@ -43,7 +54,6 @@ def save_tokens_state(tokens_data):
 
 @eel.expose
 def save_inputs_state(inputs_data):
-    print("s2")
     with open(SETTING_FILE, 'w') as f:
         json.dump(inputs_data, f, indent=2)
     #recieve_position(inputs_data)
@@ -88,7 +98,11 @@ def load_saved_state():
 def open_players():
     eel.show('players.html')
 
-eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='0.0.0.0')
+eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='localhost')
+
+local_ip = get_local_ip()
+print(f"Server running at: http://{local_ip}:8080")
+print(f"Players can open: http://{local_ip}:8080/players.html")
 
 while True:
     eel.sleep(1.0)

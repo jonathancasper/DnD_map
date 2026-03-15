@@ -13,6 +13,7 @@
 </head>
 <body class="dm">
     <div id="map-container">
+        <div id="fog-brush-indicator"></div>
         <div id="map-wrapper">
             <canvas id="fog-of-war"></canvas>
         </div>
@@ -28,8 +29,12 @@
 	<!-- HUD - Right Side -->
     <div id="right-hud" class="hud">
 		<div id="tool-selection">
+			<div class="radio-button" title="Pan/Scroll mode">
+				<input type="radio" id="pan-tool" name="tool" value="pan" checked="checked">
+				<label for="pan-tool">Pan Tool</label>
+			</div>
 			<div class="radio-button" title="Brush mode">
-				<input type="radio" id="fog-tool" name="tool" value="fog" checked="checked">
+				<input type="radio" id="fog-tool" name="tool" value="fog">
 				<label for="fog-tool">Fog Tool</label>
 			</div>
 			<div class="radio-button" title="Token mode">

@@ -14,26 +14,48 @@ const tokenImageInput = document.getElementById('token-image');
 const tokenLabelInput = document.getElementById('token-text');
 const brushSizeControl = document.getElementById('brush-size-control');
 const tokenCustomization = document.getElementById('token-customization');
+const fogBrushIndicator = document.getElementById('fog-brush-indicator');
+let fog_color = "#111";
 
 const brushSizeSlider = document.getElementById('brush-size-slider');
 const brushSizeInput = document.getElementById('brush-size-input');
 brushSizeSlider.addEventListener('input', () => {
 	brushSizeInput.value = brushSizeSlider.value;
+	updateFogBrushIndicator();
 });
 const brushColorInput = document.getElementById('brush-color');
 brushColorInput.addEventListener("change", () => {
 	fog_color = brushColorInput.value;
+	updateBrushIndicatorBorder();
 })
 
 brushSizeInput.addEventListener('input', () => {
 	brushSizeSlider.value = brushSizeInput.value;
+	updateFogBrushIndicator();
 });
+
+function updateBrushIndicatorBorder() {
+	const hex = fog_color.replace('#', '');
+	const r = parseInt(hex.substr(0, 2), 16);
+	const g = parseInt(hex.substr(2, 2), 16);
+	const b = parseInt(hex.substr(4, 2), 16);
+	const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+	fogBrushIndicator.style.borderColor = brightness > 128 ? '#000' : '#fff';
+}
+
+function updateFogBrushIndicator() {
+	const radius = parseInt(brushSizeInput.value, 10);
+	const size = radius * 2 * scale;
+	fogBrushIndicator.style.width = size + 'px';
+	fogBrushIndicator.style.height = size + 'px';
+}
 
 const mapScale = document.getElementById('map-scale');
 mapScale.addEventListener("change", () => {
 	const oldScale = scale;
 	scale = parseInt(mapScale.value, 10) / 100;
 	zoom(oldScale, self.innerWidth/2, self.innerHeight/2)
+	updateFogBrushIndicator();
 })
 
 const oriX = document.getElementById('originX');
@@ -52,11 +74,15 @@ gridSizeInput.addEventListener("change", () => {
 
 const fogToolRadio = document.getElementById('fog-tool');
 const tokenToolRadio = document.getElementById('token-tool');
+const panToolRadio = document.getElementById('pan-tool');
 fogToolRadio.addEventListener('change', updateToolDisplay);
 tokenToolRadio.addEventListener('change', updateToolDisplay);
+panToolRadio.addEventListener('change', updateToolDisplay);
 updateToolDisplay();
 
 let scale = 1; // Początkowa skala
+const minScale = 0.1; // 10% minimum
+const maxScale = 3.0; // 300% maximum
 let originX = 0; // Początkowe przesunięcie X
 let originY = 0; // Początkowe przesunięcie Y
 let isDragging = false;
@@ -64,7 +90,6 @@ let isErasing = false;
 let isDrawing = false;
 let draggedToken = false;
 let startX, startY;
-let fog_color = "#111";
 let grid_color = '#888';
 let clickStartX, clickStartY;
 const gridSize = 50;
@@ -80,6 +105,10 @@ mapContainer.addEventListener('dragover', (event) => {
 
 mapContainer.addEventListener('dragenter', (event) => {
 	event.preventDefault();
+});
+
+mapContainer.addEventListener('mouseleave', () => {
+	fogBrushIndicator.style.display = 'none';
 });
 
 dragDropArea.addEventListener('dragleave', (event) => {
@@ -107,6 +136,7 @@ mapContainer.addEventListener('wheel', function(event) {
 	
 	const scaleFactor = event.deltaY < 0 ? 1.1 : 0.9;
     scale *= scaleFactor;
+    scale = Math.max(minScale, Math.min(maxScale, scale));
 
 	zoom(oldScale, event.clientX, event.clientY)
 	mapScale.value = parseInt(scale*100)
@@ -122,7 +152,12 @@ mapContainer.addEventListener('mousedown', function(event) {
 		startX = event.clientX - originX;
 		startY = event.clientY - originY;
 	} else if (event.button === 0) { // Lewy przycisk myszy
-		if (fogToolRadio.checked) {
+		if (panToolRadio.checked) {
+			isDragging = true;
+			mapContainer.style.cursor = 'grabbing';
+			startX = event.clientX - originX;
+			startY = event.clientY - originY;
+		} else if (fogToolRadio.checked) {
 			isErasing = true;
 			saveState(); // Zapisz stan przed usunięciem mgły
 			eraseFog(event); // Usuwanie mgły w miejscu kliknięcia
@@ -137,6 +172,24 @@ mapContainer.addEventListener('mousedown', function(event) {
 });
 
 window.addEventListener('mousemove', function(event) {
+	if (fogToolRadio.checked) {
+		const rect = mapWrapper.getBoundingClientRect();
+		const x = (event.clientX - rect.left) / scale;
+		const y = (event.clientY - rect.top) / scale;
+		const radius = parseInt(brushSizeInput.value, 10);
+		const size = radius * 2 * scale;
+		const indicatorX = x * scale - radius * scale;
+		const indicatorY = y * scale - radius * scale;
+		
+		fogBrushIndicator.style.display = 'block';
+		fogBrushIndicator.style.width = size + 'px';
+		fogBrushIndicator.style.height = size + 'px';
+		fogBrushIndicator.style.left = (originX + indicatorX) + 'px';
+		fogBrushIndicator.style.top = (originY + indicatorY) + 'px';
+	} else {
+		fogBrushIndicator.style.display = 'none';
+	}
+	
 	if (isDragging) {
 		originX = event.clientX - startX;
 		originY = event.clientY - startY;
@@ -167,7 +220,11 @@ window.addEventListener('mouseup', function() {
 	isErasing = false;
 	if (isDrawing) {saveFogState();}
 	isDrawing = false;
-	mapContainer.style.cursor = '';
+	if (panToolRadio.checked) {
+		mapContainer.style.cursor = 'grab';
+	} else {
+		mapContainer.style.cursor = '';
+	}
 	if (draggedToken) {
         draggedToken = false; // Zresetowanie przeciąganego tokenu po upuszczeniu
         return; // Przerwij, aby zapobiec tworzeniu nowego tokenu
@@ -265,7 +322,7 @@ mapContainer.addEventListener('touchmove', function(event) {
         // Zoomowanie (pinch-to-zoom)
         const currentDistance = getDistance(event.touches);
         const scaleFactor = currentDistance / initialDistance;
-        scale = initialScale * scaleFactor;
+        scale = Math.max(minScale, Math.min(maxScale, initialScale * scaleFactor));
         zoom(initialScale, (event.touches[0].clientX + event.touches[1].clientX) / 2, 
              (event.touches[0].clientY + event.touches[1].clientY) / 2);
         mapScale.value = parseInt(scale * 100);
@@ -331,12 +388,21 @@ function zoom(oldScale, centerX, centerY) {
 
 // Funkcja przełączania widoczności
 function updateToolDisplay() {
-    if (fogToolRadio.checked) {
+    if (panToolRadio.checked) {
+        brushSizeControl.classList.add('hidden');
+        tokenCustomization.classList.add('hidden');
+        fogBrushIndicator.style.display = 'none';
+        mapContainer.style.cursor = 'grab';
+    } else if (fogToolRadio.checked) {
         brushSizeControl.classList.remove('hidden');
         tokenCustomization.classList.add('hidden');
+        updateBrushIndicatorBorder();
+        mapContainer.style.cursor = '';
     } else if (tokenToolRadio.checked) {
         brushSizeControl.classList.add('hidden');
         tokenCustomization.classList.remove('hidden');
+        fogBrushIndicator.style.display = 'none';
+        mapContainer.style.cursor = '';
     }
 }
 
