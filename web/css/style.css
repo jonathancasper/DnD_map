@@ -376,7 +376,7 @@ button:hover, input[type=button]:hover, input[type=file]:hover {
 	gap: 10px;
 }
 
-#file-label, #reset-fog, #open-players, #token-label, .radio-button label {
+#file-label, #change-map-btn, #reset-fog, #open-players, #token-label, .radio-button label {
 	background-color: #333;
 	padding: 5px 10px;
 	border-radius: 5px;
@@ -385,12 +385,12 @@ button:hover, input[type=button]:hover, input[type=file]:hover {
 	border: 2px solid #333;
 }
 
-#file-label:hover, #reset-fog:hover, #open-players:hover, #token-label:hover, .radio-button label:hover {
+#file-label:hover, #change-map-btn:hover, #reset-fog:hover, #open-players:hover, #token-label:hover, .radio-button label:hover {
 	background-color: #555;
 	border: 2px solid #AA7D33;
 }
 
-#file-label:active, #reset-fog:active, #open-players:active, #token-label:active {
+#file-label:active, #change-map-btn:active, #reset-fog:active, #open-players:active, #token-label:active {
 	background-color: #f90;
 }
 
@@ -405,4 +405,94 @@ button:hover, input[type=button]:hover, input[type=file]:hover {
 	object-fit: contain;
     width: 100%;
 	max-width: 250px;
+}
+
+/* Profile Modal */
+.modal {
+	display: none;
+	position: fixed;
+	z-index: 1000;
+	left: 0;
+	top: 0;
+	width: 100%;
+	height: 100%;
+	background-color: rgba(0, 0, 0, 0.8);
+}
+
+.modal.show {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+}
+
+.modal-content {
+	background-color: #2a2a2a;
+	padding: 30px;
+	border-radius: 10px;
+	border: 3px solid #AA7D33;
+	max-width: 500px;
+	width: 90%;
+	max-height: 90vh;
+	overflow-y: auto;
+}
+
+.modal-content h2 {
+	margin-top: 0;
+	color: #F5DEB3;
+	text-align: center;
+}
+
+.modal-content h3 {
+	color: #AA7D33;
+	margin-bottom: 10px;
+}
+
+.modal-section {
+	margin-bottom: 20px;
+}
+
+.modal-section select,
+.modal-section input[type="text"] {
+	width: 100%;
+	padding: 8px;
+	margin-bottom: 10px;
+	box-sizing: border-box;
+}
+
+.modal-section input[type="file"] {
+	margin-bottom: 10px;
+}
+
+.button-row {
+	display: flex;
+	gap: 10px;
+}
+
+.button-row button {
+	flex: 1;
+}
+
+button.danger {
+	background: #8b0000;
+	border-color: #ff4444;
+}
+
+button.danger:hover {
+	background: #ff4444;
+}
+
+.modal-divider {
+	text-align: center;
+	color: #666;
+	margin: 20px 0;
+}
+
+#migration-section {
+	background: rgba(170, 125, 51, 0.2);
+	padding: 15px;
+	border-radius: 5px;
+}
+
+#migration-section.hidden {
+	display: none;
 }

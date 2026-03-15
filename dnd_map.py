@@ -3,6 +3,8 @@ import eel
 import json
 import base64
 import socket
+import shutil
+from datetime import datetime
 
 def get_local_ip():
     try:
@@ -14,49 +16,242 @@ def get_local_ip():
     except Exception:
         return socket.gethostbyname(socket.gethostname())
 
-# Inicjalizacja aplikacji
+PROFILES_DIR = 'profiles'
+PROFILES_INDEX = os.path.join(PROFILES_DIR, 'profiles.json')
+
+def ensure_profiles_dir():
+    if not os.path.exists(PROFILES_DIR):
+        os.makedirs(PROFILES_DIR)
+
+def get_profiles_index():
+    ensure_profiles_dir()
+    if os.path.exists(PROFILES_INDEX):
+        with open(PROFILES_INDEX, 'r') as f:
+            return json.load(f)
+    return {"profiles": []}
+
+def save_profiles_index(data):
+    ensure_profiles_dir()
+    with open(PROFILES_INDEX, 'w') as f:
+        json.dump(data, f, indent=2)
+
+def get_profile_path(profile_name):
+    ensure_profiles_dir()
+    safe_name = profile_name.replace('/', '_').replace('\\', '_')
+    return os.path.join(PROFILES_DIR, safe_name)
+
+def create_profile_folder(profile_name):
+    profile_path = get_profile_path(profile_name)
+    if os.path.exists(profile_path):
+        shutil.rmtree(profile_path)
+    os.makedirs(profile_path)
+    return profile_path
+
+def get_profile_files(profile_name):
+    profile_path = get_profile_path(profile_name)
+    return {
+        'map': os.path.join(profile_path, 'map.png'),
+        'fog': os.path.join(profile_path, 'fog.png'),
+        'tokens': os.path.join(profile_path, 'tokens.json'),
+        'settings': os.path.join(profile_path, 'settings.json')
+    }
+
 eel.init('web')
 
-# Ścieżki do zapisania danych
 MAP_FILE = 'saved_map.png'
 FOG_FILE = 'saved_fog.png'
 TOKENS_FILE = 'tokens.json'
 SETTING_FILE = 'settings.json'
 
 @eel.expose
-def save_map_state(map_data):
-    # Konwersja danych base64 na plik obrazu
-    header, encoded = map_data.split(",", 1)
-    data = base64.b64decode(encoded)
+def get_profiles():
+    index = get_profiles_index()
+    return index.get('profiles', [])
 
-    with open(MAP_FILE, "wb") as f:
-        f.write(data)
-
+@eel.expose
+def create_profile(name, map_data, map_filename):
+    profile_path = create_profile_folder(name)
+    files = get_profile_files(name)
+    
+    if map_data:
+        header, encoded = map_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(files['map'], "wb") as f:
+            f.write(data)
+        with open(MAP_FILE, "wb") as f:
+            f.write(data)
+    
+    with open(files['fog'], "wb") as f:
+        pass
+    
+    with open(files['tokens'], 'w') as f:
+        json.dump([], f)
+    
+    with open(files['settings'], 'w') as f:
+        json.dump({}, f)
+    
+    index = get_profiles_index()
+    profiles = index.get('profiles', [])
+    profiles = [p for p in profiles if p['name'] != name]
+    profiles.append({
+        'name': name,
+        'map_filename': map_filename,
+        'last_modified': datetime.now().isoformat()
+    })
+    save_profiles_index({'profiles': profiles})
+    
     eel.recieve_map(map_data)
+    return True
 
 @eel.expose
-def save_fog_state(fog_data):
-    # Konwersja danych base64 na plik obrazu
-    header, encoded = fog_data.split(",", 1)
-    data = base64.b64decode(encoded)
-
-    with open(FOG_FILE, "wb") as f:
-        f.write(data)
-
-    eel.recieve_fog(fog_data)
+def load_profile(name):
+    files = get_profile_files(name)
+    
+    map_data = None
+    if os.path.exists(files['map']) and os.path.getsize(files['map']) > 0:
+        with open(files['map'], "rb") as f:
+            map_data = f.read()
+        map_data = "data:image/png;base64," + base64.b64encode(map_data).decode()
+        # Sync to root files for players
+        with open(MAP_FILE, "wb") as f:
+            f.write(base64.b64decode(map_data.split(",", 1)[1]))
+    
+    fog_data = None
+    if os.path.exists(files['fog']) and os.path.getsize(files['fog']) > 0:
+        with open(files['fog'], "rb") as f:
+            fog_data = f.read()
+        fog_data = "data:image/png;base64," + base64.b64encode(fog_data).decode()
+        # Sync to root files for players
+        with open(FOG_FILE, "wb") as f:
+            f.write(base64.b64decode(fog_data.split(",", 1)[1]))
+    
+    tokens_data = []
+    if os.path.exists(files['tokens']):
+        with open(files['tokens'], 'r') as f:
+            tokens_data = json.load(f)
+        # Sync to root files for players
+        with open(TOKENS_FILE, 'w') as f:
+            json.dump(tokens_data, f, indent=2)
+    
+    settings_data = {}
+    if os.path.exists(files['settings']):
+        with open(files['settings'], 'r') as f:
+            settings_data = json.load(f)
+        # Sync to root files for players
+        with open(SETTING_FILE, 'w') as f:
+            json.dump(settings_data, f, indent=2)
+    
+    return {"map": map_data, "fog": fog_data, "tokens": tokens_data, "settings": settings_data, "profile_name": name}
 
 @eel.expose
-def save_tokens_state(tokens_data):
-    with open(TOKENS_FILE, 'w') as f:
-        json.dump(tokens_data, f, indent=2)
-
-    eel.recieve_tokens(tokens_data)
+def delete_profile(name):
+    profile_path = get_profile_path(name)
+    if os.path.exists(profile_path):
+        shutil.rmtree(profile_path)
+    
+    index = get_profiles_index()
+    profiles = [p for p in index.get('profiles', []) if p['name'] != name]
+    save_profiles_index({'profiles': profiles})
+    return True
 
 @eel.expose
-def save_inputs_state(inputs_data):
-    with open(SETTING_FILE, 'w') as f:
-        json.dump(inputs_data, f, indent=2)
-    #recieve_position(inputs_data)
+def save_profile_state(profile_name, fog_data, tokens_data, settings_data):
+    if not profile_name:
+        return False
+    
+    files = get_profile_files(profile_name)
+    
+    if fog_data:
+        header, encoded = fog_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(files['fog'], "wb") as f:
+            f.write(data)
+    
+    if tokens_data is not None:
+        with open(files['tokens'], 'w') as f:
+            json.dump(tokens_data, f, indent=2)
+    
+    if settings_data:
+        with open(files['settings'], 'w') as f:
+            json.dump(settings_data, f, indent=2)
+    
+    index = get_profiles_index()
+    for p in index.get('profiles', []):
+        if p['name'] == profile_name:
+            p['last_modified'] = datetime.now().isoformat()
+    save_profiles_index(index)
+    
+    return True
+
+@eel.expose
+def broadcast_profile_to_players(profile_name):
+    state = load_profile(profile_name)
+    eel.recieve_map(state.get('map'))
+    eel.recieve_fog(state.get('fog'))
+    eel.recieve_tokens(state.get('tokens'))
+    return True
+
+@eel.expose
+def save_map_state(map_data, profile_name=None):
+    if profile_name:
+        files = get_profile_files(profile_name)
+        header, encoded = map_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(files['map'], "wb") as f:
+            f.write(data)
+        with open(MAP_FILE, "wb") as f:
+            f.write(data)
+        eel.recieve_map(map_data)
+    else:
+        header, encoded = map_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(MAP_FILE, "wb") as f:
+            f.write(data)
+        eel.recieve_map(map_data)
+
+@eel.expose
+def save_fog_state(fog_data, profile_name=None):
+    if profile_name:
+        files = get_profile_files(profile_name)
+        header, encoded = fog_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(files['fog'], "wb") as f:
+            f.write(data)
+        with open(FOG_FILE, "wb") as f:
+            f.write(data)
+        eel.recieve_fog(fog_data)
+    else:
+        header, encoded = fog_data.split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(FOG_FILE, "wb") as f:
+            f.write(data)
+        eel.recieve_fog(fog_data)
+
+@eel.expose
+def save_tokens_state(tokens_data, profile_name=None):
+    if profile_name:
+        files = get_profile_files(profile_name)
+        with open(files['tokens'], 'w') as f:
+            json.dump(tokens_data, f, indent=2)
+        with open(TOKENS_FILE, 'w') as f:
+            json.dump(tokens_data, f, indent=2)
+        eel.recieve_tokens(tokens_data)
+    else:
+        with open(TOKENS_FILE, 'w') as f:
+            json.dump(tokens_data, f, indent=2)
+        eel.recieve_tokens(tokens_data)
+
+@eel.expose
+def save_inputs_state(inputs_data, profile_name=None):
+    if profile_name:
+        files = get_profile_files(profile_name)
+        with open(files['settings'], 'w') as f:
+            json.dump(inputs_data, f, indent=2)
+        with open(SETTING_FILE, 'w') as f:
+            json.dump(inputs_data, f, indent=2)
+    else:
+        with open(SETTING_FILE, 'w') as f:
+            json.dump(inputs_data, f, indent=2)
 
 
 @eel.expose
@@ -65,34 +260,64 @@ def send_new_pos(x, y, s):
         
 
 @eel.expose
-def load_saved_state():
-    # Ładowanie zapisanej mapy
+def load_saved_state(profile_name=None):
+    if profile_name:
+        return load_profile(profile_name)
+    
     map_data = None
     if os.path.exists(MAP_FILE):
         with open(MAP_FILE, "rb") as f:
             map_data = f.read()
         map_data = "data:image/png;base64," + base64.b64encode(map_data).decode()
 
-    # Ładowanie zapisanej mgły
     fog_data = None
     if os.path.exists(FOG_FILE):
         with open(FOG_FILE, "rb") as f:
             fog_data = f.read()
         fog_data = "data:image/png;base64," + base64.b64encode(fog_data).decode()
 
-    # Ładowanie zapisanych tokenów
     tokens_data = []
     if os.path.exists(TOKENS_FILE):
         with open(TOKENS_FILE, 'r') as f:
             tokens_data = json.load(f)
 
-    # Ładowanie zapisanych ustawień
     settings_data = {}
     if os.path.exists(SETTING_FILE):
         with open(SETTING_FILE, 'r') as f:
             settings_data = json.load(f)
 
     return {"map": map_data, "fog": fog_data, "tokens": tokens_data, "settings": settings_data}
+
+@eel.expose
+def get_initial_state():
+    profiles = get_profiles()
+    if profiles:
+        return {"has_profiles": True, "profiles": profiles}
+    
+    old_map_exists = os.path.exists(MAP_FILE) and os.path.getsize(MAP_FILE) > 0
+    return {"has_profiles": False, "old_map_exists": old_map_exists}
+
+@eel.expose
+def migrate_old_state(profile_name):
+    old_state = load_saved_state()
+    create_profile(profile_name, old_state.get('map'), 'migrated.png')
+    files = get_profile_files(profile_name)
+    
+    if old_state.get('fog'):
+        header, encoded = old_state['fog'].split(",", 1)
+        data = base64.b64decode(encoded)
+        with open(files['fog'], "wb") as f:
+            f.write(data)
+    
+    if old_state.get('tokens'):
+        with open(files['tokens'], 'w') as f:
+            json.dump(old_state['tokens'], f, indent=2)
+    
+    if old_state.get('settings'):
+        with open(files['settings'], 'w') as f:
+            json.dump(old_state['settings'], f, indent=2)
+    
+    return load_profile(profile_name)
 
 @eel.expose
 def open_players():

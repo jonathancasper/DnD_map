@@ -6,16 +6,15 @@ const gridCtx = gridCanvas.getContext('2d');
 const mapContainer = document.getElementById('map-container');
 const fileInput = document.getElementById('file-input');
 const dragDropArea = document.getElementById('drag-drop-area');
-const fileLabel = document.getElementById('file-label');
 const resetFogBtn = document.getElementById('reset-fog');
 const openPlayersBtn = document.getElementById('open-players');
+const changeMapBtn = document.getElementById('change-map-btn');
 const tokenColorInput = document.getElementById('token-color');
-const tokenImageInput = document.getElementById('token-image');
-const tokenLabelInput = document.getElementById('token-text');
 const brushSizeControl = document.getElementById('brush-size-control');
 const tokenCustomization = document.getElementById('token-customization');
 const fogBrushIndicator = document.getElementById('fog-brush-indicator');
 let fog_color = "#111";
+let currentProfile = null;
 
 const brushSizeSlider = document.getElementById('brush-size-slider');
 const brushSizeInput = document.getElementById('brush-size-input');
@@ -119,12 +118,9 @@ dragDropArea.addEventListener('drop', (event) => {
 	event.preventDefault();
 	dragDropArea.style.display = 'none';
 	
-	var files = event.dataTransfer.files;
-	
-	if (files.length > 0) {
-		fileInput.files = files;
-		handleFile(event.dataTransfer.files[0]);
-	}
+	eel.get_profiles()(function(profiles) {
+		showProfileModal(profiles);
+	});
 });
 
 document.addEventListener('contextmenu', event => event.preventDefault());
@@ -269,12 +265,6 @@ mapWrapper.addEventListener('mousedown', function(event) {
 	}
 });
 
-fileInput.addEventListener('change', (event) => {
-	if (event.target.files.length > 0) {
-		handleFile(event.target.files[0]);
-	}
-});
-
 document.querySelectorAll('input').forEach(input => {
     input.addEventListener('input', saveInputsState);
     input.addEventListener('change', saveInputsState);
@@ -360,8 +350,8 @@ function handleFile(file) {
 		mapImg.onload = function() {
 			saveMapState(event.target.result);
 			
-			fogCanvas.width = mapWrapper.clientWidth;
-			fogCanvas.height = mapWrapper.clientHeight;
+			fogCanvas.width = mapImg.width;
+			fogCanvas.height = mapImg.height;
 			ctx.fillStyle = fog_color;
 			ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
 		};
@@ -408,7 +398,7 @@ function updateToolDisplay() {
 
 // Funkcja zapisu stanu mapy
 function saveMapState(mapData) {
-	eel.save_map_state(mapData);
+	eel.save_map_state(mapData, currentProfile);
 }
 
 function saveState() {
@@ -463,7 +453,7 @@ function drawFog(event) {
 // Zapis stanu mgły do pliku
 function saveFogState() {
 	const fogData = fogCanvas.toDataURL();
-	eel.save_fog_state(fogData);
+	eel.save_fog_state(fogData, currentProfile);
 }
 
 let tokenCounter = 1; // Zmienna do śledzenia numeru tokenu
@@ -552,7 +542,7 @@ function saveTokensState() {
     });
 
     // Przesyłanie danych do Pythona
-    eel.save_tokens_state(tokens);
+    eel.save_tokens_state(tokens, currentProfile);
 }
 
 function saveInputsState() {
@@ -567,7 +557,7 @@ function saveInputsState() {
     });
 
     // Przesyłanie danych do Pythona
-    eel.save_inputs_state(inputsData);
+    eel.save_inputs_state(inputsData, currentProfile);
 }
 
 function sendNewPos(x, y, s) {
@@ -609,59 +599,182 @@ function drawGrid() {
 
 // Ładowanie zapisanego stanu mapy i mgły przy starcie
 window.onload = function() {
-	eel.load_saved_state()(function(savedState) {
-		if (savedState.map) {
-			let mapImg = document.getElementById('map');
-
-			if (!mapImg) {
-				// Jeśli mapImg nie istnieje, stwórz nowy element img
-				mapImg = document.createElement('img');
-				mapImg.id = 'map';
-				mapImg.src = savedState.map;
-
-				// Dodaj nowo stworzony element img jako pierwszy element w mapWrapper
-				mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
-			}
-			
-			mapImg.onload = function() {
-				fogCanvas.width = mapWrapper.clientWidth;
-				fogCanvas.height = mapWrapper.clientHeight;
-				if (savedState.fog) {
-					const img = new Image();
-					img.src = savedState.fog;
-					img.onload = function() {
-						ctx.drawImage(img, 0, 0);
-					};
-				} else {
-					ctx.fillStyle = fog_color;
-					ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
-				}
-
-				if (savedState.tokens) {
-					savedState.tokens.forEach(tokenData => {
-						createToken(tokenData.left, tokenData.top, tokenData.size, tokenData.color, tokenData.text);
-					});
-				}
-			};
-		}
-		if (savedState.settings) {
-			for (const id in savedState.settings) {
-				const input = document.getElementById(id);
-				if (input) {
-					if (input.type === 'radio' || input.type === 'checkbox') {
-						input.checked = savedState.settings[id];
-					} else {
-						input.value = savedState.settings[id];
-					}
-				}
-			}
-			updateToolDisplay();
-			originX = parseInt(oriX.value);
-			originY = parseInt(oriY.value);
-			scale = parseInt(mapScale.value)/100;
-			mapWrapper.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
-			fog_color = brushColorInput.value;
+	eel.get_initial_state()(function(initialState) {
+		if (initialState.has_profiles) {
+			showProfileModal(initialState.profiles);
+		} else if (initialState.old_map_exists) {
+			showProfileModal([], true);
+		} else {
+			showProfileModal([]);
 		}
 	});
+	
+	setupProfileModal();
 };
+
+function showProfileModal(profiles, showMigration = false) {
+	const modal = document.getElementById('profile-modal');
+	const select = document.getElementById('profile-select');
+	const migrationSection = document.getElementById('migration-section');
+	
+	select.innerHTML = '<option value="">-- Select a profile --</option>';
+	profiles.forEach(profile => {
+		const option = document.createElement('option');
+		option.value = profile.name;
+		option.textContent = profile.name;
+		select.appendChild(option);
+	});
+	
+	if (showMigration) {
+		migrationSection.classList.remove('hidden');
+	} else {
+		migrationSection.classList.add('hidden');
+	}
+	
+	modal.classList.add('show');
+}
+
+function hideProfileModal() {
+	const modal = document.getElementById('profile-modal');
+	modal.classList.remove('show');
+}
+
+function loadProfileState(profileName) {
+	eel.load_profile(profileName)(function(savedState) {
+		currentProfile = profileName;
+		hideProfileModal();
+		loadStateIntoUI(savedState);
+	});
+}
+
+function loadStateIntoUI(savedState) {
+	document.querySelectorAll('.token').forEach(token => token.remove());
+	tokenCounter = 1;
+	
+	if (savedState.map) {
+		let mapImg = document.getElementById('map');
+
+		if (!mapImg) {
+			mapImg = document.createElement('img');
+			mapImg.id = 'map';
+			mapImg.src = savedState.map;
+			mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
+		} else {
+			mapImg.src = savedState.map;
+		}
+		
+		mapImg.onload = function() {
+			fogCanvas.width = mapImg.width;
+			fogCanvas.height = mapImg.height;
+			if (savedState.fog) {
+				const img = new Image();
+				img.src = savedState.fog;
+				img.onload = function() {
+					ctx.drawImage(img, 0, 0);
+				};
+			} else {
+				ctx.fillStyle = fog_color;
+				ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+			}
+
+			if (savedState.tokens) {
+				savedState.tokens.forEach(tokenData => {
+					createToken(tokenData.left, tokenData.top, tokenData.size, tokenData.color, tokenData.text);
+				});
+			}
+		};
+		
+		eel.broadcast_profile_to_players(currentProfile);
+	}
+	if (savedState.settings) {
+		for (const id in savedState.settings) {
+			const input = document.getElementById(id);
+			if (input) {
+				if (input.type === 'radio' || input.type === 'checkbox') {
+					input.checked = savedState.settings[id];
+				} else {
+					input.value = savedState.settings[id];
+				}
+			}
+		}
+		updateToolDisplay();
+		originX = parseInt(oriX.value);
+		originY = parseInt(oriY.value);
+		scale = parseInt(mapScale.value)/100;
+		mapWrapper.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
+		fog_color = brushColorInput.value;
+	}
+}
+
+function setupProfileModal() {
+	const changeMapBtn = document.getElementById('change-map-btn');
+	const profileSelect = document.getElementById('profile-select');
+	const loadProfileBtn = document.getElementById('load-profile-btn');
+	const deleteProfileBtn = document.getElementById('delete-profile-btn');
+	const newMapFile = document.getElementById('new-map-file');
+	const newProfileName = document.getElementById('new-profile-name');
+	const createProfileBtn = document.getElementById('create-profile-btn');
+	const migrateBtn = document.getElementById('migrate-btn');
+	const migrateProfileName = document.getElementById('migrate-profile-name');
+	
+	changeMapBtn.addEventListener('click', function() {
+		eel.get_profiles()(function(profiles) {
+			showProfileModal(profiles);
+		});
+	});
+	
+	loadProfileBtn.addEventListener('click', function() {
+		const selectedProfile = profileSelect.value;
+		if (selectedProfile) {
+			loadProfileState(selectedProfile);
+		}
+	});
+	
+	deleteProfileBtn.addEventListener('click', function() {
+		const selectedProfile = profileSelect.value;
+		if (selectedProfile && confirm(`Delete profile "${selectedProfile}"? This cannot be undone.`)) {
+			eel.delete_profile(selectedProfile)(function() {
+				eel.get_profiles()(function(profiles) {
+					showProfileModal(profiles);
+				});
+			});
+		}
+	});
+	
+	createProfileBtn.addEventListener('click', function() {
+		const profileName = newProfileName.value.trim();
+		const file = newMapFile.files[0];
+		
+		if (!profileName) {
+			alert('Please enter a profile name');
+			return;
+		}
+		if (!file) {
+			alert('Please select a map image');
+			return;
+		}
+		
+		const reader = new FileReader();
+		reader.onload = function(event) {
+			eel.create_profile(profileName, event.target.result, file.name)(function() {
+				loadProfileState(profileName);
+			});
+		};
+		reader.readAsDataURL(file);
+	});
+	
+	migrateBtn.addEventListener('click', function() {
+		const profileName = migrateProfileName.value.trim();
+		if (!profileName) {
+			alert('Please enter a profile name');
+			return;
+		}
+		
+		eel.migrate_old_state(profileName)(function(savedState) {
+			currentProfile = profileName;
+			hideProfileModal();
+			loadStateIntoUI(savedState);
+		});
+	});
+}
 

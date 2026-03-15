@@ -7,9 +7,6 @@
 	<script type="text/javascript" src="/eel.js"></script>
 	<link rel="stylesheet" href="css/style.css">
     <link rel="icon" type="image/x-icon" href="/img/favicon.ico">
-    <style>
-        
-    </style>
 </head>
 <body class="dm">
     <div id="map-container">
@@ -20,9 +17,9 @@
         <canvas id="grid"></canvas>
     </div>
 	
-	<!-- Drop new map file -->
+    <!-- Drop new map file (hidden, used by modal) -->
+    <input type="file" id="file-input" accept="image/*" style="display: none;">
     <div id="drag-drop-area">
-		<input type="file" id="file-input" accept="image/*">
 		Przeciągnij plik tutaj, aby wgrać mapę
 	</div>
 	
@@ -54,9 +51,6 @@
         <div id="token-customization" class="hidden">
             <input type="color" id="token-color" value="#ff0000" title="Sets color for new token">
 			<input type="number" id="token-size-input" min="5" max="50" value="20" title="Sets size for new token">
-            <!--<input type="file" id="token-image" accept="image/*">
-            <label for="token-image" id="token-label">Token img</label>
-            <input type="text" id="token-text" placeholder="Token Label">-->
         </div>
     </div>
 
@@ -88,7 +82,7 @@
 
     <!-- HUD - Top Left -->
     <div id="top-left-hud" class="hud">
-        <label for="file-input" id="file-label" title="Changes map used in session">Change Map</label>
+        <div id="change-map-btn" title="Select or create a profile">Change Map</div>
         <div id="reset-fog" title="Resets the fog">Reset Fog</div>
 		<div id="open-players" title="Opens new window with players view">Open Players Map</div>
     </div>
@@ -97,6 +91,44 @@
         <input id="originX" value="0">
         <input id="originY" value="0">
         <input id="grid-size" value="50">
+    </div>
+
+    <!-- Profile Selection Modal -->
+    <div id="profile-modal" class="modal">
+        <div class="modal-content">
+            <h2>Select or Create Profile</h2>
+            
+            <div class="modal-section">
+                <h3>Existing Profiles</h3>
+                <select id="profile-select">
+                    <option value="">-- Select a profile --</option>
+                </select>
+                <div class="button-row">
+                    <button id="load-profile-btn">Load</button>
+                    <button id="delete-profile-btn" class="danger">Delete</button>
+                </div>
+            </div>
+            
+            <div class="modal-divider">OR</div>
+            
+            <div class="modal-section">
+                <h3>Create New Profile</h3>
+                <label for="new-map-file">Map Image:</label>
+                <input type="file" id="new-map-file" accept="image/*">
+                <label for="new-profile-name">Profile Name:</label>
+                <input type="text" id="new-profile-name" placeholder="Enter profile name">
+                <button id="create-profile-btn">Create Profile</button>
+            </div>
+            
+            <div id="migration-section" class="modal-section hidden">
+                <div class="modal-divider">OR</div>
+                <h3>Migrate Old Data</h3>
+                <p>You have existing map data. Would you like to migrate it to a new profile?</p>
+                <label for="migrate-profile-name">Profile Name:</label>
+                <input type="text" id="migrate-profile-name" placeholder="Enter profile name for migration">
+                <button id="migrate-btn">Migrate</button>
+            </div>
+        </div>
     </div>
 
     <script src="js/dm.js"></script>

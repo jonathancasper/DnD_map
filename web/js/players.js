@@ -170,9 +170,9 @@ window.onload = function() {
 				mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
 			}
 			
-			mapImg.onload = function() {
-				fogCanvas.width = mapWrapper.clientWidth;
-				fogCanvas.height = mapWrapper.clientHeight;
+		mapImg.onload = function() {
+				fogCanvas.width = mapImg.width;
+				fogCanvas.height = mapImg.height;
 				if (savedState.fog) {
 					const img = new Image();
 					img.src = savedState.fog;
@@ -223,6 +223,20 @@ function recieve_map(map) {
             mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
         }
 
+        document.querySelectorAll('.token').forEach(token => token.remove());
+        
+        if (mapImg.naturalWidth > 0) {
+            fogCanvas.width = mapImg.naturalWidth;
+            fogCanvas.height = mapImg.naturalHeight;
+        }
+        
+        mapImg.onload = function() {
+            fogCanvas.width = mapImg.naturalWidth || mapImg.width;
+            fogCanvas.height = mapImg.naturalHeight || mapImg.height;
+            ctx.fillStyle = fog_color;
+            ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+        };
+
         mapImg.src = map;
 	}
 };
@@ -230,10 +244,16 @@ function recieve_map(map) {
 // Ładowanie mgły
 eel.expose(recieve_fog);
 function recieve_fog(fog) {
+	if (!fog) {
+		ctx.fillStyle = fog_color;
+		ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+		return;
+	}
+	
 	const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
-    tempCanvas.width = mapWrapper.clientWidth;
-    tempCanvas.height = mapWrapper.clientHeight;
+    tempCanvas.width = fogCanvas.width;
+    tempCanvas.height = fogCanvas.height;
 
     if (fog) {
         const img = new Image();
