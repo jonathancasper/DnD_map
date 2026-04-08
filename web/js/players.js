@@ -1,4 +1,5 @@
 const mapWrapper = document.getElementById('map-wrapper');
+mapWrapper.classList.add('hidden-map');
 const fogCanvas = document.getElementById('fog-of-war');
 const ctx = fogCanvas.getContext('2d');
 const mapContainer = document.getElementById('map-container');
@@ -154,6 +155,10 @@ function createToken(x, y, size, color, text) {
     mapWrapper.appendChild(token);
 }
 
+function revealMap() {
+	mapWrapper.classList.remove('hidden-map');
+}
+
 // Ładowanie zapisanego stanu mapy i mgły przy starcie
 window.onload = function() {
 	eel.load_saved_state()(function(savedState) {
@@ -178,10 +183,12 @@ window.onload = function() {
 					img.src = savedState.fog;
 					img.onload = function() {
 						ctx.drawImage(img, 0, 0);
+						revealMap();
 					};
 				} else {
 					ctx.fillStyle = fog_color;
 					ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+					revealMap();
 				}
 
 				if (savedState.tokens) {
@@ -265,6 +272,7 @@ function recieve_fog(fog) {
             // Po załadowaniu i narysowaniu obrazu, przenieś go na widoczne canvas
             ctx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
             ctx.drawImage(tempCanvas, 0, 0);
+            revealMap();
         };
     }
 };

@@ -42,6 +42,10 @@ body.players {
 	transform-origin: 0 0;
 }
 
+#map-wrapper.hidden-map #map {
+	visibility: hidden;
+}
+
 #map {
 	height: auto; /* Zachowanie proporcji mapy */
 }

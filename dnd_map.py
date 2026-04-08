@@ -4,6 +4,7 @@ import json
 import base64
 import socket
 import shutil
+import webbrowser
 from datetime import datetime
 
 def get_local_ip():
@@ -321,13 +322,15 @@ def migrate_old_state(profile_name):
 
 @eel.expose
 def open_players():
-    eel.show('players.html')
+    webbrowser.open(f'http://{local_ip}:8080/players.html')
 
-eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='0.0.0.0')
+eel.start('dm.html', block=False, size=(900, 600), port=8080, mode=False, host='0.0.0.0')
 
 local_ip = get_local_ip()
-print(f"Server running at: http://{local_ip}:8080")
+print(f"Server running at: http://{local_ip}:8080/dm.html")
 print(f"Players can open: http://{local_ip}:8080/players.html")
+
+webbrowser.open(f'http://127.0.0.1:8080/dm.html')
 
 while True:
     eel.sleep(1.0)
