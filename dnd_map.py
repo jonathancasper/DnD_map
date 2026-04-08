@@ -323,7 +323,7 @@ def migrate_old_state(profile_name):
 def open_players():
     eel.show('players.html')
 
-eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='localhost')
+eel.start('dm.html', block=False, size=(900, 600), port=8080, mode='default', host='0.0.0.0')
 
 local_ip = get_local_ip()
 print(f"Server running at: http://{local_ip}:8080")
