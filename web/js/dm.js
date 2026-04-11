@@ -225,6 +225,7 @@ window.addEventListener('mouseup', function() {
 	}
 	if (draggedToken) {
         draggedToken = false; // Zresetowanie przeciąganego tokenu po upuszczeniu
+        saveTokensState(); // Save on drop
         return; // Przerwij, aby zapobiec tworzeniu nowego tokenu
     }
 	
