@@ -1,0 +1,8 @@
+local_assets/
+build/
+dist/
+*.spec
+__pycache__/
+*.pyc
+*.egg-info/
+.DS_Store

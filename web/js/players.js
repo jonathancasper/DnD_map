@@ -8,6 +8,7 @@ const mapScale = document.getElementById('map-scale');
 mapScale.addEventListener("change", () => {
 	const oldScale = scale;
 	scale = parseInt(mapScale.value, 10) / 100;
+	scale = Math.max(minScale, Math.min(maxScale, scale));
 	zoom(oldScale, self.innerWidth/2, self.innerHeight/2)
 })
 const oriX = document.getElementById('originX');
@@ -20,6 +21,8 @@ oriY.addEventListener("change", () => {
 })
 
 let scale = 1; // Początkowa skala
+const minScale = 0.1; // 10% minimum
+const maxScale = 3.0; // 300% maximum
 let originX = 0; // Początkowe przesunięcie X
 let originY = 0; // Początkowe przesunięcie Y
 let isDragging = false;
@@ -33,7 +36,7 @@ mapContainer.addEventListener('wheel', function(event) {
 	const oldScale = scale;
 	
 	const scaleFactor = event.deltaY < 0 ? 1.1 : 0.9;
-    scale *= scaleFactor;
+    scale = Math.max(minScale, Math.min(maxScale, scale * scaleFactor));
 
 	zoom(oldScale, event.clientX, event.clientY)
 	mapScale.value = parseInt(scale*100)
@@ -93,7 +96,7 @@ mapContainer.addEventListener('touchmove', function(event) {
         // Zoomowanie (pinch-to-zoom)
         const currentDistance = getDistance(event.touches);
         const scaleFactor = currentDistance / initialDistance;
-        scale = initialScale * scaleFactor;
+        scale = Math.max(minScale, Math.min(maxScale, initialScale * scaleFactor));
         zoom(initialScale, (event.touches[0].clientX + event.touches[1].clientX) / 2, 
              (event.touches[0].clientY + event.touches[1].clientY) / 2);
         mapScale.value = parseInt(scale * 100);
@@ -109,11 +112,26 @@ window.addEventListener('mouseup', function() {
 	mapContainer.style.cursor = 'grab';
 });
 
+document.getElementById('reset-view').addEventListener('click', function() {
+    originX = 0;
+    originY = 0;
+    scale = 1;
+    mapWrapper.style.transform = `translate(0px, 0px) scale(1)`;
+    oriX.value = 0;
+    oriY.value = 0;
+    mapScale.value = 100;
+});
+
 // Funkcja do obliczania odległości między dwoma punktami dotyku
 function getDistance(touches) {
     const dx = touches[0].clientX - touches[1].clientX;
     const dy = touches[0].clientY - touches[1].clientY;
     return Math.sqrt(dx * dx + dy * dy);
+}
+
+function clampScale() {
+    scale = Math.max(minScale, Math.min(maxScale, parseInt(mapScale.value) / 100));
+    mapScale.value = parseInt(scale * 100);
 }
 
 // zoom
@@ -166,18 +184,13 @@ window.onload = function() {
 			let mapImg = document.getElementById('map');
 
 			if (!mapImg) {
-				// Jeśli mapImg nie istnieje, stwórz nowy element img
 				mapImg = document.createElement('img');
 				mapImg.id = 'map';
-				mapImg.src = savedState.map;
-
-				// Dodaj nowo stworzony element img jako pierwszy element w mapWrapper
 				mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
 			}
-			
-		mapImg.onload = function() {
-				fogCanvas.width = mapImg.width;
-				fogCanvas.height = mapImg.height;
+			mapImg.onload = function() {
+				fogCanvas.width = mapImg.width || mapImg.naturalWidth;
+				fogCanvas.height = mapImg.height || mapImg.naturalHeight;
 				if (savedState.fog) {
 					const img = new Image();
 					img.src = savedState.fog;
@@ -197,6 +210,11 @@ window.onload = function() {
 					});
 				}
 			};
+			mapImg.src = savedState.map;
+		} else {
+			fogCanvas.width = 800;
+			fogCanvas.height = 600;
+			revealMap();
 		}
 		if (savedState.settings) {
 			for (const id in savedState.settings) {
@@ -220,42 +238,40 @@ window.onload = function() {
 // Ładowanie mapy
 eel.expose(recieve_map);
 function recieve_map(map) {
-	console.log(map);
-    if (map) {
-        let mapImg = document.getElementById('map');
-
-        if (!mapImg) {
-            mapImg = document.createElement('img');
-            mapImg.id = 'map';
-            mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
-        }
-
-        document.querySelectorAll('.token').forEach(token => token.remove());
-        
-        if (mapImg.naturalWidth > 0) {
-            fogCanvas.width = mapImg.naturalWidth;
-            fogCanvas.height = mapImg.naturalHeight;
-        }
-        
-        mapImg.onload = function() {
-            fogCanvas.width = mapImg.naturalWidth || mapImg.width;
-            fogCanvas.height = mapImg.naturalHeight || mapImg.height;
-            ctx.fillStyle = fog_color;
-            ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
-        };
-
-        mapImg.src = map;
-	}
+    if (!map) return;
+    let mapImg = document.getElementById('map');
+    if (!mapImg) {
+        mapImg = document.createElement('img');
+        mapImg.id = 'map';
+        mapWrapper.insertBefore(mapImg, mapWrapper.firstChild);
+    }
+    mapImg.onload = function() {
+        fogCanvas.width = mapImg.naturalWidth || mapImg.width || 1600;
+        fogCanvas.height = mapImg.naturalHeight || mapImg.height || 1600;
+        ctx.fillStyle = fog_color;
+        ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+    };
+    mapImg.src = map;
 };
 
 // Ładowanie mgły
 eel.expose(recieve_fog);
 function recieve_fog(fog) {
-	if (!fog) {
-		ctx.fillStyle = fog_color;
-		ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
-		return;
-	}
+    if (fogCanvas.width === 0 || fogCanvas.height === 0) {
+        fogCanvas.width = 1600;
+        fogCanvas.height = 1600;
+    }
+    if (!fog) {
+        ctx.fillStyle = fog_color;
+        ctx.fillRect(0, 0, fogCanvas.width, fogCanvas.height);
+        return;
+    }
+    const img = new Image();
+    img.onload = function() {
+        ctx.clearRect(0, 0, fogCanvas.width, fogCanvas.height);
+        ctx.drawImage(img, 0, 0);
+    };
+    img.src = fog;
 	
 	const tempCanvas = document.createElement('canvas');
     const tempCtx = tempCanvas.getContext('2d');
@@ -293,6 +309,12 @@ function recieve_tokens(tokens) {
 eel.expose(recieve_position);
 function recieve_position(x, y, s) {
 	mapWrapper.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
+	originX = x;
+	originY = y;
+	scale = s;
+	oriX.value = x;
+	oriY.value = y;
+	mapScale.value = Math.round(s * 100);
 };
 // function recieve_position(settings) {
 // 	if (settings) {

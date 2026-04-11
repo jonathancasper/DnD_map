@@ -5,7 +5,17 @@ import base64
 import socket
 import shutil
 import webbrowser
+import time
+import signal
+import sys
 from datetime import datetime
+
+def signal_handler(sig, frame):
+    print("\nServer shutting down...")
+    sys.exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
 
 def get_local_ip():
     try:
@@ -17,7 +27,8 @@ def get_local_ip():
     except Exception:
         return socket.gethostbyname(socket.gethostname())
 
-PROFILES_DIR = 'profiles'
+LOCAL_ASSETS_DIR = 'local_assets'
+PROFILES_DIR = os.path.join(LOCAL_ASSETS_DIR, 'profiles')
 PROFILES_INDEX = os.path.join(PROFILES_DIR, 'profiles.json')
 
 def ensure_profiles_dir():
@@ -59,10 +70,13 @@ def get_profile_files(profile_name):
 
 eel.init('web')
 
-MAP_FILE = 'saved_map.png'
-FOG_FILE = 'saved_fog.png'
-TOKENS_FILE = 'tokens.json'
-SETTING_FILE = 'settings.json'
+if not os.path.exists('local_assets'):
+    os.makedirs('local_assets')
+
+MAP_FILE = os.path.join('local_assets', 'saved_map.png')
+FOG_FILE = os.path.join('local_assets', 'saved_fog.png')
+TOKENS_FILE = os.path.join('local_assets', 'tokens.json')
+SETTING_FILE = os.path.join('local_assets', 'settings.json')
 
 @eel.expose
 def get_profiles():
@@ -125,6 +139,10 @@ def load_profile(name):
         # Sync to root files for players
         with open(FOG_FILE, "wb") as f:
             f.write(base64.b64decode(fog_data.split(",", 1)[1]))
+    else:
+        # Fog is empty or doesn't exist - clear saved_fog.png so players get empty fog
+        with open(FOG_FILE, "wb") as f:
+            pass
     
     tokens_data = []
     if os.path.exists(files['tokens']):
@@ -194,10 +212,15 @@ def broadcast_profile_to_players(profile_name):
 
 @eel.expose
 def save_map_state(map_data, profile_name=None):
-    if profile_name:
-        files = get_profile_files(profile_name)
+    if not map_data or not map_data.startswith('data:image'):
+        return True
+    try:
         header, encoded = map_data.split(",", 1)
         data = base64.b64decode(encoded)
+    except Exception:
+        return True
+    if profile_name:
+        files = get_profile_files(profile_name)
         with open(files['map'], "wb") as f:
             f.write(data)
         with open(MAP_FILE, "wb") as f:
@@ -212,10 +235,15 @@ def save_map_state(map_data, profile_name=None):
 
 @eel.expose
 def save_fog_state(fog_data, profile_name=None):
-    if profile_name:
-        files = get_profile_files(profile_name)
+    if not fog_data or not fog_data.startswith('data:image'):
+        return True
+    try:
         header, encoded = fog_data.split(",", 1)
         data = base64.b64decode(encoded)
+    except Exception:
+        return True
+    if profile_name:
+        files = get_profile_files(profile_name)
         with open(files['fog'], "wb") as f:
             f.write(data)
         with open(FOG_FILE, "wb") as f:
@@ -266,13 +294,13 @@ def load_saved_state(profile_name=None):
         return load_profile(profile_name)
     
     map_data = None
-    if os.path.exists(MAP_FILE):
+    if os.path.exists(MAP_FILE) and os.path.getsize(MAP_FILE) > 0:
         with open(MAP_FILE, "rb") as f:
             map_data = f.read()
         map_data = "data:image/png;base64," + base64.b64encode(map_data).decode()
 
     fog_data = None
-    if os.path.exists(FOG_FILE):
+    if os.path.exists(FOG_FILE) and os.path.getsize(FOG_FILE) > 0:
         with open(FOG_FILE, "rb") as f:
             fog_data = f.read()
         fog_data = "data:image/png;base64," + base64.b64encode(fog_data).decode()
@@ -324,13 +352,30 @@ def migrate_old_state(profile_name):
 def open_players():
     webbrowser.open(f'http://{local_ip}:8080/players.html')
 
+@eel.expose
+def quit_server():
+    print("Quit requested from DM...")
+    import sys
+    sys.exit(0)
+
+@eel.expose
+def ping():
+    return True
+
 eel.start('dm.html', block=False, size=(900, 600), port=8080, mode=False, host='0.0.0.0')
 
 local_ip = get_local_ip()
 print(f"Server running at: http://{local_ip}:8080/dm.html")
 print(f"Players can open: http://{local_ip}:8080/players.html")
+print("Press Ctrl+C to quit server...")
 
 webbrowser.open(f'http://127.0.0.1:8080/dm.html')
 
+last_save_time = time.time()
 while True:
-    eel.sleep(1.0)
+    eel.sleep(10.0)
+    if time.time() - last_save_time > 300:
+        print("Auto-saving state (5 min interval)...")
+        last_save_time = time.time()
+
+print("Server stopped.")

@@ -18,6 +18,11 @@
         </div>
     </div>
 
+    <!-- HUD - Top Left -->
+    <div id="top-left-hud" class="hud">
+        <div id="reset-view" title="Reset view to default position and zoom">Reset View</div>
+    </div>
+
     <!-- HUD - Right Side -->
     <div id="right-hud" class="hud">
 		<div id="tool-selection">
@@ -50,7 +55,7 @@
     <!-- HUD - Bottom Right -->
     <div id="bottom-right-hud" class="hud" title="Changes the zoom">
         <label for="map-scale">Map Scale:</label>
-        <input type="number" id="map-scale" min="10" max="300" value="100">
+        <input type="number" id="map-scale" min="10" max="300" value="100" onchange="clampScale()">
 		<label for="map-scale">%</label>
     </div>
 

@@ -380,7 +380,7 @@ button:hover, input[type=button]:hover, input[type=file]:hover {
 	gap: 10px;
 }
 
-#file-label, #change-map-btn, #reset-fog, #open-players, #token-label, .radio-button label {
+#file-label, #change-map-btn, #reset-fog, #reset-view, #open-players, #quit-btn, #token-label, .radio-button label {
 	background-color: #333;
 	padding: 5px 10px;
 	border-radius: 5px;
@@ -389,12 +389,12 @@ button:hover, input[type=button]:hover, input[type=file]:hover {
 	border: 2px solid #333;
 }
 
-#file-label:hover, #change-map-btn:hover, #reset-fog:hover, #open-players:hover, #token-label:hover, .radio-button label:hover {
+#file-label:hover, #change-map-btn:hover, #reset-fog:hover, #reset-view:hover, #open-players:hover, #quit-btn:hover, #token-label:hover, .radio-button label:hover {
 	background-color: #555;
 	border: 2px solid #AA7D33;
 }
 
-#file-label:active, #change-map-btn:active, #reset-fog:active, #open-players:active, #token-label:active {
+#file-label:active, #change-map-btn:active, #reset-fog:active, #reset-view:active, #open-players:active, #quit-btn:active, #token-label:active {
 	background-color: #f90;
 }
 

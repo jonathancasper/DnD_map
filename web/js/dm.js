@@ -190,7 +190,9 @@ window.addEventListener('mousemove', function(event) {
 		originX = event.clientX - startX;
 		originY = event.clientY - startY;
 		mapWrapper.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
-		sendNewPos(originX, originY, scale)
+		if (document.getElementById('checkbox-1').checked) {
+			sendNewPos(originX, originY, scale);
+		}
 		oriX.value = originX;
 		oriY.value = originY;
 		saveInputsState()
@@ -282,6 +284,22 @@ openPlayersBtn.addEventListener("click", () => {
 	eel.open_players();
 })
 
+document.getElementById('quit-btn').addEventListener('click', () => {
+	if (!confirm("Save state and quit? Make sure players have synced any changes you want them to see.")) {
+		return;
+	}
+	saveFogState();
+	saveTokensState();
+	saveInputsState();
+	if (document.getElementById('checkbox-1').checked) {
+		eel.send_new_pos(originX, originY, scale);
+	}
+	eel.quit_server();
+	setTimeout(() => {
+		window.close();
+	}, 500);
+})
+
 let initialDistance = 0;
 let initialScale = scale;
 // Obsługa gestów na urządzeniach mobilnych
@@ -305,7 +323,9 @@ mapContainer.addEventListener('touchmove', function(event) {
         originX = event.touches[0].clientX - startX;
         originY = event.touches[0].clientY - startY;
         mapWrapper.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
-		sendNewPos(originX, originY, scale)
+		if (document.getElementById('checkbox-1').checked) {
+			sendNewPos(originX, originY, scale);
+		}
         oriX.value = originX;
         oriY.value = originY;
     } else if (event.touches.length === 2) {
@@ -321,6 +341,20 @@ mapContainer.addEventListener('touchmove', function(event) {
 
 mapContainer.addEventListener('touchend', function(event) {
     isDragging = false;
+});
+
+document.getElementById('reset-view').addEventListener('click', function() {
+    originX = 0;
+    originY = 0;
+    scale = 1;
+    mapWrapper.style.transform = `translate(0px, 0px) scale(1)`;
+    oriX.value = 0;
+    oriY.value = 0;
+    mapScale.value = 100;
+    saveInputsState();
+    if (document.getElementById('checkbox-1').checked) {
+        sendNewPos(0, 0, 1);
+    }
 });
 
 // Funkcja do obliczania odległości między dwoma punktami dotyku
@@ -373,7 +407,9 @@ function zoom(oldScale, centerX, centerY) {
     originY += centerY - (originY + newOffsetY);
 
 	mapWrapper.style.transform = `translate(${originX}px, ${originY}px) scale(${scale})`;
-	sendNewPos(originX, originY, scale)
+	if (document.getElementById('checkbox-1').checked) {
+		sendNewPos(originX, originY, scale);
+	}
 }
 
 // Funkcja przełączania widoczności
