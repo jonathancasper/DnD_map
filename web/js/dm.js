@@ -549,6 +549,9 @@ function createToken(x, y, size, color, text) {
                 // Zmiana koloru tokenu na losowy
                 token.style.backgroundColor = `#${Math.floor(Math.random()*16777215).toString(16)}`;
 				saveTokensState()
+            } else {
+                // Token was dragged - save position
+                saveTokensState();
             }
             draggedToken = null; // Zresetowanie przeciąganego tokenu
         }
@@ -578,7 +581,7 @@ function saveTokensState() {
         tokens.push(tokenData);
     });
 
-    // Przesyłanie danych do Pythona
+// Przesyłanie danych do Pythona
     eel.save_tokens_state(tokens, currentProfile);
 }
 
